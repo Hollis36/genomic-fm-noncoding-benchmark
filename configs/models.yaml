@@ -1,0 +1,140 @@
+# ============================================
+# Genomic Foundation Model Registry
+# ============================================
+
+dnabert2:
+  name: "zhihan1996/DNABERT-2-117M"
+  type: encoder              # MLM-based, use embedding methods
+  params: 117M
+  embedding_dim: 768
+  max_length: 512            # tokens (BPE)
+  max_bp: ~3000              # approximate base-pair coverage
+  tokenizer_type: BPE
+  quantize: null             # small enough for FP16
+  pooling: mean              # mean token embedding (best per literature)
+  zero_shot_method: embedding_distance
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.05
+    target_modules: ["query", "value"]
+  estimated_vram_gb:
+    inference: 2
+    lora_finetune: 5
+
+nucleotide_transformer_500m:
+  name: "InstaDeepAI/nucleotide-transformer-v2-500m-multi-species"
+  type: encoder
+  params: 500M
+  embedding_dim: 1024
+  max_length: 2048           # 6-mer tokens → ~12kb raw sequence
+  max_bp: ~12000
+  tokenizer_type: 6mer
+  quantize: null
+  pooling: mean
+  zero_shot_method: embedding_distance
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.05
+    target_modules: ["query", "value"]
+  estimated_vram_gb:
+    inference: 3
+    lora_finetune: 8
+
+nucleotide_transformer_2500m:
+  name: "InstaDeepAI/nucleotide-transformer-2.5b-multi-species"
+  type: encoder
+  params: 2.5B
+  embedding_dim: 2560
+  max_length: 2048
+  max_bp: ~12000
+  tokenizer_type: 6mer
+  quantize: null             # LoRA required, FP16 fits in 24GB
+  pooling: mean
+  zero_shot_method: embedding_distance
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.05
+    target_modules: ["query", "value"]
+  estimated_vram_gb:
+    inference: 6
+    lora_finetune: 12
+
+hyenadna:
+  name: "LongSafari/hyenadna-large-1m-seqlen-hf"
+  type: causal               # autoregressive, use log-likelihood method
+  params: ~1.6B
+  embedding_dim: 256
+  max_length: 8192           # can extend to 1M, but 8k for fair comparison
+  max_bp: 8192               # single-nucleotide tokenization
+  tokenizer_type: character
+  quantize: null
+  pooling: mean              # for embedding extraction
+  zero_shot_method: log_likelihood_ratio
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.05
+    target_modules: ["filter", "projection"]
+  estimated_vram_gb:
+    inference: 4
+    lora_finetune: 10
+
+caduceus:
+  name: "kuleshov-group/caduceus-ph_seqlen-131k_d256_n4"
+  type: encoder              # bidirectional Mamba
+  params: ~various
+  embedding_dim: 256
+  max_length: 8192
+  max_bp: 8192
+  tokenizer_type: character
+  quantize: null
+  pooling: mean
+  zero_shot_method: embedding_distance
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.05
+    target_modules: ["in_proj", "out_proj"]
+  estimated_vram_gb:
+    inference: 3
+    lora_finetune: 8
+
+evo1:
+  name: "togethercomputer/evo-1-131k-base"
+  type: causal
+  params: 7B
+  embedding_dim: 4096
+  max_length: 8192
+  max_bp: 8192
+  tokenizer_type: character
+  quantize: 4bit             # required for RTX 4090
+  pooling: mean
+  zero_shot_method: log_likelihood_ratio
+  lora:
+    r: 8
+    alpha: 16
+    dropout: 0.05
+    target_modules: ["in_proj", "out_proj"]
+  estimated_vram_gb:
+    inference: 10
+    lora_finetune: 14
+
+# ============================================
+# Baseline Methods (non-foundation-model)
+# ============================================
+baselines:
+  cadd:
+    version: "v1.7"
+    source: "https://cadd.gs.washington.edu/"
+    type: score_lookup
+  phylop:
+    version: "hg38.100way"
+    source: "UCSC"
+    type: score_lookup
+  phastcons:
+    version: "hg38.100way"
+    source: "UCSC"
+    type: score_lookup

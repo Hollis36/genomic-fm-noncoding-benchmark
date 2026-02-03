@@ -1,0 +1,38 @@
+name: genomic-fm-benchmark
+channels:
+  - conda-forge
+  - bioconda
+  - pytorch
+  - nvidia
+  - defaults
+
+dependencies:
+  - python=3.10
+  - pytorch=2.1
+  - pytorch-cuda=12.1
+  - numpy>=1.24
+  - pandas>=2.0
+  - scikit-learn>=1.3
+  - scipy>=1.11
+  - matplotlib>=3.7
+  - seaborn>=0.12
+  - jupyter>=1.0
+  - tqdm
+  - pyyaml
+  - pip
+  - pip:
+      - transformers>=4.36
+      - tokenizers>=0.15
+      - accelerate>=0.25
+      - peft>=0.7
+      - bitsandbytes>=0.41
+      - datasets>=2.16
+      - evaluate
+      - flash-attn>=2.3
+      - einops
+      - pysam>=0.22
+      - pyBigWig
+      - cyvcf2>=0.31
+      - pyliftover
+      - statsmodels
+      - triton

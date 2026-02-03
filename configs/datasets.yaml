@@ -1,0 +1,95 @@
+# ============================================
+# Dataset Configuration
+# ============================================
+
+reference_genome:
+  assembly: GRCh38
+  fasta_url: "https://ftp.ensembl.org/pub/release-110/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+  local_path: "data/reference/GRCh38.fa"
+
+# --- Positive set: ClinVar pathogenic non-coding variants ---
+clinvar:
+  vcf_url: "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz"
+  tbi_url: "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz.tbi"
+  local_path: "data/raw/clinvar.vcf.gz"
+  filters:
+    clinical_significance:
+      - "Pathogenic"
+      - "Likely_pathogenic"
+      - "Pathogenic/Likely_pathogenic"
+    molecular_consequence:
+      - "intron_variant"
+      - "non-coding_transcript_variant"
+      - "5_prime_UTR_variant"
+      - "3_prime_UTR_variant"
+      - "upstream_gene_variant"
+      - "downstream_gene_variant"
+      - "intergenic_variant"
+    review_status_min_stars: 1  # at least 1-star review
+
+# --- Negative set strategies ---
+negative_sets:
+  N1_clinvar_benign:
+    description: "ClinVar benign non-coding variants (easiest)"
+    source: clinvar
+    filters:
+      clinical_significance:
+        - "Benign"
+        - "Likely_benign"
+      molecular_consequence: same_as_positive
+
+  N2_gnomad_common:
+    description: "gnomAD v4 common non-coding variants (MAF > 5%)"
+    source: gnomad_v4
+    vcf_url: "https://gnomad.broadinstitute.org/downloads#v4"
+    filters:
+      min_allele_frequency: 0.05
+      exclude_clinvar_pathogenic: true
+      match_region_distribution: false  # raw distribution
+
+  N3_matched_random:
+    description: "Position-matched random substitutions (strictest)"
+    source: synthetic
+    method: "For each positive variant, generate a random alt allele at the same position"
+    filters:
+      exclude_known_pathogenic: true
+      exclude_gnomad_rare: true         # exclude known rare variants
+
+# --- Region annotations ---
+region_annotation:
+  encode_ccres:
+    url: "https://api.wenglab.org/screen_v13/fdownloads/GRCh38-cCREs.bed.gz"
+    description: "ENCODE candidate cis-Regulatory Elements"
+  gencode:
+    url: "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_44/gencode.v44.annotation.gtf.gz"
+    description: "Gene annotation for UTR, exon, intron classification"
+
+# --- Region categories ---
+region_categories:
+  splice_proximal:
+    definition: "Within 20bp of annotated splice site"
+  utr_5prime:
+    definition: "5' UTR as annotated by GENCODE"
+  utr_3prime:
+    definition: "3' UTR as annotated by GENCODE"
+  promoter:
+    definition: "TSS +/- 2kb"
+  enhancer:
+    definition: "ENCODE cCRE-dELS (distal enhancer-like signature)"
+  deep_intronic:
+    definition: "Intronic, >50bp from nearest exon boundary"
+  intergenic:
+    definition: "Outside any gene body and cCRE"
+
+# --- Evaluation settings ---
+evaluation:
+  context_windows: [512, 1024, 2048, 4096, 8192]  # bp
+  default_context: 1024
+  cv_folds: 5
+  random_seed: 42
+  positive_negative_ratio: 1:1  # balanced sampling
+  metrics:
+    - auroc
+    - auprc
+    - mcc
+    - f1_optimal
