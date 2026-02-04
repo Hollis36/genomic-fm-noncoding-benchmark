@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov pytest-xdist
+          pip install -r requirements-test.txt || true
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install transformers accelerate peft
+          pip install numpy pandas scikit-learn scipy matplotlib seaborn
+          pip install pysam pyBigWig cyvcf2
+          pip install pyyaml tqdm
+
+      - name: Run tests
+        run: |
+          pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing -n auto -m "not slow and not gpu and not model"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black isort mypy
+
+      - name: Run ruff
+        run: ruff check src/ tests/ data/scripts/ --output-format=github
+
+      - name: Run black (check only)
+        run: black --check src/ tests/ data/scripts/
+
+      - name: Run isort (check only)
+        run: isort --check-only src/ tests/ data/scripts/
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install bandit
+        run: pip install bandit[toml]
+
+      - name: Run bandit
+        run: bandit -r src/ -f json -o bandit-report.json || true
+
+      - name: Upload bandit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json

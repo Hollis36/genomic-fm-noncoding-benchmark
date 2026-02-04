@@ -1,23 +1,31 @@
+"""Genomic foundation model wrappers."""
+
 from .base import GenomicModelBase
-from .dnabert2 import DNABERT2Model
-from .nucleotide_transformer import NucleotideTransformerModel
-from .hyenadna import HyenaDNAModel
 from .caduceus import CaduceusModel
+from .dnabert2 import DNABERT2Model
 from .evo import EvoModel
+from .hyenadna import HyenaDNAModel
+from .nucleotide_transformer import NucleotideTransformerModel
+from .registry import (
+    MODEL_REGISTRY,
+    create_model,
+    list_available_models,
+    load_model,
+    register_model,
+    unregister_model,
+)
 
-MODEL_CLASSES = {
-    "dnabert2": DNABERT2Model,
-    "nucleotide_transformer_500m": NucleotideTransformerModel,
-    "nucleotide_transformer_2500m": NucleotideTransformerModel,
-    "hyenadna": HyenaDNAModel,
-    "caduceus": CaduceusModel,
-    "evo1": EvoModel,
-}
-
-
-def load_model(model_key: str, config: dict) -> GenomicModelBase:
-    """Factory function to load a model by key."""
-    if model_key not in MODEL_CLASSES:
-        raise ValueError(f"Unknown model: {model_key}. Available: {list(MODEL_CLASSES.keys())}")
-    model_cls = MODEL_CLASSES[model_key]
-    return model_cls(config)
+__all__ = [
+    "GenomicModelBase",
+    "DNABERT2Model",
+    "NucleotideTransformerModel",
+    "HyenaDNAModel",
+    "CaduceusModel",
+    "EvoModel",
+    "MODEL_REGISTRY",
+    "create_model",
+    "load_model",
+    "register_model",
+    "unregister_model",
+    "list_available_models",
+]
