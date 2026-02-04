@@ -1,10 +1,22 @@
 """DNABERT-2 model wrapper (117M parameters, encoder-based)."""
 
+import sys
+from types import ModuleType
+
 import numpy as np
 import torch
 from transformers import AutoModel, AutoTokenizer
 
 from .base import GenomicModelBase
+
+# Mock triton for Mac compatibility (DNABERT-2 requires it but we don't use flash-attn on Mac)
+if 'triton' not in sys.modules:
+    class MockTriton(ModuleType):
+        def __getattr__(self, name):
+            return lambda *args, **kwargs: None
+
+    sys.modules['triton'] = MockTriton('triton')
+    sys.modules['triton.language'] = MockTriton('triton.language')
 
 
 class DNABERT2Model(GenomicModelBase):
@@ -15,8 +27,14 @@ class DNABERT2Model(GenomicModelBase):
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name, trust_remote_code=True
         )
+        # Disable flash attention on non-CUDA devices (e.g., MPS on Mac)
+        import os
+        os.environ["FLASH_ATTENTION_SKIP_CUDA_CHECK"] = "1"
+
         self.model = AutoModel.from_pretrained(
-            self.model_name, trust_remote_code=True
+            self.model_name,
+            trust_remote_code=True,
+            attn_implementation="eager",  # Use eager attention instead of flash
         ).to(self.device)
         self.model.eval()
         print(f"  Loaded. Parameters: {self.num_parameters:,}")
