@@ -21,7 +21,7 @@ import pandas as pd
 import pysam
 
 
-def build_n2_gnomad(positive_df: pd.DataFrame, gnomad_vcf: str, output_path: str):
+def build_n2_gnomad(positive_df: pd.DataFrame, gnomad_vcf: str, output_path: str) -> pd.DataFrame:
     """
     N2: Extract common non-coding variants from gnomAD (MAF > 5%).
 
@@ -73,10 +73,21 @@ def build_n3_matched_random(
     ref_fasta: str,
     output_path: str,
     seed: int = 42,
-):
-    """
-    N3: For each positive variant, create a random substitution at the same
-    genomic position with a different alt allele.
+) -> pd.DataFrame:
+    """Build N3 negative set: position-matched random substitution variants.
+
+    For each positive (pathogenic) variant, creates a random SNV at the same
+    genomic position with a different alternate allele. This controls for
+    positional biases while providing a neutral substitution.
+
+    Args:
+        positive_df: DataFrame of positive variants with chrom, pos, ref, alt columns.
+        ref_fasta: Path to indexed reference genome FASTA (GRCh38).
+        output_path: Path to write the output TSV.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        DataFrame of matched random negative variants.
     """
     print("Building N3: position-matched random variants ...")
     random.seed(seed)

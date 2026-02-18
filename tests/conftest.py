@@ -38,7 +38,7 @@ def sample_embeddings():
 def sample_labels():
     """Generate sample binary labels for testing."""
     np.random.seed(42)
-    return np.random.bindin(2, size=100)
+    return np.random.binomial(2, 0.5, size=100)
 
 
 @pytest.fixture

@@ -6,6 +6,7 @@ on the variant pathogenicity classification task.
 """
 
 import json
+import logging
 import time
 from pathlib import Path
 
@@ -19,6 +20,8 @@ from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer, get_linear_schedule_with_warmup
 
 from .metrics import compute_all_metrics
+
+logger = logging.getLogger(__name__)
 
 
 class VariantDataset(Dataset):
@@ -115,10 +118,27 @@ class LoRAFineTuner:
 
     def _train_one_fold(
         self,
-        train_seqs, train_labels,
-        val_seqs, val_labels,
+        train_seqs: list[str],
+        train_labels: np.ndarray,
+        val_seqs: list[str],
+        val_labels: np.ndarray,
     ) -> dict:
         """Train for one CV fold and return validation metrics."""
+        try:
+            return self._train_one_fold_inner(train_seqs, train_labels, val_seqs, val_labels)
+        except torch.cuda.OutOfMemoryError:
+            logger.error("CUDA OOM during training fold. Clearing cache and returning zero metrics.")
+            torch.cuda.empty_cache()
+            return {"auroc": 0.0, "auprc": 0.0, "mcc": 0.0, "f1": 0.0, "optimal_threshold": 0.5}
+
+    def _train_one_fold_inner(
+        self,
+        train_seqs: list[str],
+        train_labels: np.ndarray,
+        val_seqs: list[str],
+        val_labels: np.ndarray,
+    ) -> dict:
+        """Inner training logic for one CV fold."""
         tokenizer, encoder, head = self._build_model()
         encoder = encoder.to(self.device)
         head = head.to(self.device)

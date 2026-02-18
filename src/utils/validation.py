@@ -1,8 +1,10 @@
 """Input validation utilities."""
 
+import re
 from pathlib import Path
 from typing import List, Optional
 
+import numpy as np
 import pandas as pd
 
 from .logging_config import get_logger
@@ -216,5 +218,83 @@ def validate_model_config(config: dict) -> bool:
 
     if not isinstance(config["max_length"], int) or config["max_length"] <= 0:
         raise ValidationError("max_length must be a positive integer")
+
+    return True
+
+
+_DNA_PATTERN = re.compile(r"^[ACGTNacgtn]+$")
+
+
+def validate_dna_sequences_batch(sequences: list[str]) -> list[str]:
+    """Validate a batch of DNA sequences, returning only valid ones.
+
+    Invalid or empty sequences are logged and excluded from the result.
+
+    Args:
+        sequences: List of DNA sequence strings.
+
+    Returns:
+        List of valid DNA sequences (uppercase).
+
+    Raises:
+        ValidationError: If the input list is empty or all sequences are invalid.
+    """
+    if not sequences:
+        raise ValidationError("Sequence list is empty")
+
+    valid = []
+    for i, seq in enumerate(sequences):
+        if not seq or not isinstance(seq, str):
+            logger.warning("Skipping empty/non-string sequence at index %d", i)
+            continue
+        if not _DNA_PATTERN.match(seq):
+            logger.warning("Skipping sequence at index %d with invalid characters", i)
+            continue
+        valid.append(seq.upper())
+
+    if not valid:
+        raise ValidationError("No valid DNA sequences in batch")
+
+    return valid
+
+
+def validate_dataset_for_evaluation(
+    df: pd.DataFrame,
+    require_both_classes: bool = True,
+) -> bool:
+    """Validate that a dataset is suitable for evaluation.
+
+    Checks for empty datasets, required columns, and optionally ensures
+    both positive and negative labels are present.
+
+    Args:
+        df: Variant DataFrame.
+        require_both_classes: If True, raises if only one label class exists.
+
+    Returns:
+        True if valid.
+
+    Raises:
+        ValidationError: If the dataset fails validation checks.
+    """
+    if df is None or len(df) == 0:
+        raise ValidationError("Dataset is empty")
+
+    required_cols = {"ref_seq", "alt_seq", "label"}
+    missing = required_cols - set(df.columns)
+    if missing:
+        raise ValidationError(f"Missing required columns for evaluation: {missing}")
+
+    labels = df["label"]
+    unique_labels = set(labels.unique())
+
+    if not unique_labels.issubset({0, 1}):
+        raise ValidationError(f"Labels must be binary (0/1). Found: {unique_labels}")
+
+    if require_both_classes and len(unique_labels) < 2:
+        raise ValidationError(
+            f"Dataset must contain both positive and negative labels. "
+            f"Found only: {unique_labels}"
+        )
 
     return True

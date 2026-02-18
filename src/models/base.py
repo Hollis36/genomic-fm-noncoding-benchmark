@@ -6,11 +6,18 @@ Each model must implement:
   - score_variant(ref_seq, alt_seq) -> float
 """
 
+import logging
+import time
 from abc import ABC, abstractmethod
 from typing import Optional
 
 import numpy as np
 import torch
+
+logger = logging.getLogger(__name__)
+
+MAX_DOWNLOAD_RETRIES = 3
+RETRY_BASE_DELAY_SECONDS = 5
 
 
 class GenomicModelBase(ABC):
@@ -29,6 +36,34 @@ class GenomicModelBase(ABC):
     def load(self):
         """Load model and tokenizer."""
         pass
+
+    def load_with_retry(self) -> "GenomicModelBase":
+        """Load model with retry logic for transient download failures.
+
+        Returns:
+            self, for method chaining
+
+        Raises:
+            OSError: If all retry attempts fail
+        """
+        for attempt in range(1, MAX_DOWNLOAD_RETRIES + 1):
+            try:
+                self.load()
+                return self
+            except OSError as e:
+                if attempt == MAX_DOWNLOAD_RETRIES:
+                    logger.error("Model download failed after %d attempts: %s", attempt, e)
+                    raise
+                delay = RETRY_BASE_DELAY_SECONDS * attempt
+                logger.warning(
+                    "Model download attempt %d/%d failed: %s. Retrying in %ds...",
+                    attempt,
+                    MAX_DOWNLOAD_RETRIES,
+                    e,
+                    delay,
+                )
+                time.sleep(delay)
+        return self
 
     @abstractmethod
     def get_embedding(self, sequence: str) -> np.ndarray:

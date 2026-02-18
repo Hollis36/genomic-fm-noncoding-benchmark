@@ -41,14 +41,17 @@ class TestComputeAllMetrics:
         assert "optimal_threshold" in metrics
 
     def test_single_class(self):
-        """Test handling of single-class labels."""
+        """Test handling of single-class labels returns zeros."""
         y_true = np.ones(10)
         y_score = np.random.rand(10)
 
         metrics = compute_all_metrics(y_true, y_score)
 
-        assert np.isnan(metrics["auroc"])
-        assert np.isnan(metrics["auprc"])
+        assert metrics["auroc"] == 0.0
+        assert metrics["auprc"] == 0.0
+        assert metrics["mcc"] == 0.0
+        assert metrics["f1"] == 0.0
+        assert metrics["optimal_threshold"] == 0.5
 
     def test_balanced_dataset(self):
         """Test with balanced positive/negative samples."""

@@ -26,8 +26,20 @@ from pathlib import Path
 import pandas as pd
 
 
-def load_gencode_features(gtf_path: str) -> dict:
-    """Parse GENCODE GTF to extract exon boundaries, UTRs, and TSS positions."""
+def load_gencode_features(gtf_path: str) -> dict[str, dict[str, list]]:
+    """Parse GENCODE GTF to extract genomic features for region classification.
+
+    Extracts exon boundaries, 5'/3' UTRs, transcription start sites, and gene
+    body intervals from a GENCODE annotation file. Intervals are sorted per
+    chromosome for efficient lookup.
+
+    Args:
+        gtf_path: Path to GENCODE GTF file (.gtf or .gtf.gz).
+
+    Returns:
+        Nested dict keyed by feature type ("exons", "utr5", "utr3", "tss",
+        "gene_body"), each mapping chromosome names to sorted interval lists.
+    """
     print(f"Loading GENCODE annotation from {gtf_path} ...")
     features = {
         "exons": defaultdict(list),       # chrom -> [(start, end)]
@@ -73,8 +85,18 @@ def load_gencode_features(gtf_path: str) -> dict:
     return features
 
 
-def load_encode_ccres(bed_path: str) -> dict:
-    """Load ENCODE cCREs, extract enhancer-like signatures."""
+def load_encode_ccres(bed_path: str) -> dict[str, list[tuple[int, int]]]:
+    """Load ENCODE cCREs and extract distal enhancer-like signatures (dELS).
+
+    Reads an ENCODE candidate cis-Regulatory Elements BED file and filters
+    for entries annotated as distal enhancer-like signatures.
+
+    Args:
+        bed_path: Path to ENCODE cCREs BED file (.bed or .bed.gz).
+
+    Returns:
+        Dict mapping chromosome names to sorted lists of (start, end) intervals.
+    """
     print(f"Loading ENCODE cCREs from {bed_path} ...")
     enhancers = defaultdict(list)
 
@@ -100,7 +122,7 @@ def load_encode_ccres(bed_path: str) -> dict:
     return enhancers
 
 
-def overlaps(pos: int, intervals: list, window: int = 0) -> bool:
+def overlaps(pos: int, intervals: list[tuple[int, int]], window: int = 0) -> bool:
     """Check if position overlaps any interval (with optional window)."""
     import bisect
     # Simple linear scan for now; optimize with interval tree for large datasets
@@ -112,7 +134,7 @@ def overlaps(pos: int, intervals: list, window: int = 0) -> bool:
     return False
 
 
-def near_splice_site(pos: int, exons: list, distance: int = 20) -> bool:
+def near_splice_site(pos: int, exons: list[tuple[int, int]], distance: int = 20) -> bool:
     """Check if position is within `distance` bp of an exon boundary."""
     for start, end in exons:
         if abs(pos - start) <= distance or abs(pos - end) <= distance:
@@ -125,10 +147,23 @@ def near_splice_site(pos: int, exons: list, distance: int = 20) -> bool:
 def classify_region(
     chrom: str,
     pos: int,
-    gencode: dict,
-    enhancers: dict,
+    gencode: dict[str, dict[str, list]],
+    enhancers: dict[str, list[tuple[int, int]]],
 ) -> str:
-    """Classify a variant position into a non-coding region category."""
+    """Classify a variant position into a non-coding region category.
+
+    Priority order: splice_proximal > utr_5prime > utr_3prime > promoter >
+    enhancer > deep_intronic > intergenic.
+
+    Args:
+        chrom: Chromosome name (e.g., "chr1").
+        pos: 1-based genomic position.
+        gencode: GENCODE features from load_gencode_features().
+        enhancers: ENCODE enhancer intervals from load_encode_ccres().
+
+    Returns:
+        Region category string.
+    """
     # 1. Splice-proximal
     if near_splice_site(pos, gencode["exons"].get(chrom, []), distance=20):
         return "splice_proximal"
@@ -161,10 +196,10 @@ def classify_region(
 
 def annotate_variants(
     variant_tsv: str,
-    gencode: dict,
-    enhancers: dict,
+    gencode: dict[str, dict[str, list]],
+    enhancers: dict[str, list[tuple[int, int]]],
     output_path: str,
-):
+) -> None:
     """Add region_category column to variant TSV."""
     df = pd.read_csv(variant_tsv, sep="\t")
     print(f"Annotating {len(df)} variants from {variant_tsv} ...")

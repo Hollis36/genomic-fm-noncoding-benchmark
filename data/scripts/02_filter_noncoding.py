@@ -33,9 +33,19 @@ PATHOGENIC_TERMS = {"Pathogenic", "Likely_pathogenic", "Pathogenic/Likely_pathog
 BENIGN_TERMS = {"Benign", "Likely_benign", "Benign/Likely_benign"}
 
 
-def parse_info(info_str: str) -> dict:
-    """Parse VCF INFO field into a dictionary."""
-    info = {}
+def parse_info(info_str: str) -> dict[str, str | bool]:
+    """Parse VCF INFO field into a dictionary.
+
+    Args:
+        info_str: Semicolon-delimited INFO string from a VCF record.
+            Key=value pairs become string entries; standalone flags become True.
+
+    Returns:
+        Parsed INFO dictionary.
+    """
+    if not info_str:
+        return {}
+    info: dict[str, str | bool] = {}
     for item in info_str.split(";"):
         if "=" in item:
             key, val = item.split("=", 1)
@@ -45,26 +55,44 @@ def parse_info(info_str: str) -> dict:
     return info
 
 
-def get_molecular_consequences(info: dict) -> set:
-    """Extract molecular consequence terms from MC field."""
+def get_molecular_consequences(info: dict[str, str | bool]) -> set[str]:
+    """Extract molecular consequence terms from the VCF MC (Molecular Consequence) field.
+
+    The MC field format is: "SO:accession|term,SO:accession|term,...".
+    This function extracts the human-readable term from each entry.
+
+    Args:
+        info: Parsed INFO dictionary (output of parse_info).
+
+    Returns:
+        Set of molecular consequence term strings.
+    """
     mc = info.get("MC", "")
     if not mc:
         return set()
-    consequences = set()
-    for entry in mc.split(","):
+    consequences: set[str] = set()
+    for entry in str(mc).split(","):
         parts = entry.split("|")
         if len(parts) >= 2:
             consequences.add(parts[1])
     return consequences
 
 
-def is_noncoding(consequences: set) -> bool:
+def is_noncoding(consequences: set[str]) -> bool:
     """Check if any consequence is non-coding."""
     return bool(consequences & NONCODING_MC)
 
 
-def process_clinvar(vcf_path: str, output_dir: str):
-    """Process ClinVar VCF and output positive/negative variant sets."""
+def process_clinvar(vcf_path: str, output_dir: str) -> None:
+    """Process ClinVar VCF and output positive/negative variant sets.
+
+    Reads a ClinVar VCF (optionally gzipped), filters for non-coding SNVs,
+    and splits them into pathogenic (positive) and benign (negative N1) sets.
+
+    Args:
+        vcf_path: Path to ClinVar VCF file (.vcf or .vcf.gz).
+        output_dir: Directory to write output TSV files.
+    """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 

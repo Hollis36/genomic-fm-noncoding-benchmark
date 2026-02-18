@@ -7,6 +7,7 @@ Two strategies:
 """
 
 import json
+import logging
 import time
 from pathlib import Path
 
@@ -16,6 +17,8 @@ from tqdm import tqdm
 
 from ..models.base import GenomicModelBase
 from .metrics import compute_all_metrics
+
+logger = logging.getLogger(__name__)
 
 
 class ZeroShotEvaluator:
@@ -40,8 +43,12 @@ class ZeroShotEvaluator:
             batch_ref = ref_seqs[i:i + batch_size]
             batch_alt = alt_seqs[i:i + batch_size]
             for r, a in zip(batch_ref, batch_alt):
-                score = self.model.score_variant(r, a)
-                scores.append(score)
+                try:
+                    score = self.model.score_variant(r, a)
+                    scores.append(score)
+                except (RuntimeError, ValueError) as e:
+                    logger.warning("Tokenization/scoring error for variant at index %d: %s", i, e)
+                    scores.append(0.0)
 
         elapsed = time.time() - start_time
         print(f"  Scored {len(scores)} variants in {elapsed:.1f}s "

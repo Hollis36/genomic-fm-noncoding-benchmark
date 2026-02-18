@@ -20,9 +20,23 @@ def extract_sequences(
     variant_tsv: str,
     ref_fasta: str,
     context_size: int = 1024,
-    output_path: str = None,
-):
-    """Extract ref/alt sequences for all variants."""
+    output_path: str | None = None,
+) -> pd.DataFrame:
+    """Extract reference and alternate DNA sequences around each variant.
+
+    For each variant, fetches a window of context_size bp centered on the
+    variant position from the reference genome, then constructs the alternate
+    sequence by substituting the alt allele.
+
+    Args:
+        variant_tsv: Path to annotated variant TSV with chrom, pos, ref, alt columns.
+        ref_fasta: Path to indexed reference genome FASTA (GRCh38).
+        context_size: Total context window size in base pairs (centered on variant).
+        output_path: Optional path to save output as Parquet.
+
+    Returns:
+        DataFrame with ref_seq, alt_seq, and variant metadata.
+    """
     df = pd.read_csv(variant_tsv, sep="\t")
     ref = pysam.FastaFile(ref_fasta)
 

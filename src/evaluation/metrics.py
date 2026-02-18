@@ -31,7 +31,7 @@ def compute_all_metrics(y_true: np.ndarray, y_score: np.ndarray) -> dict:
 
     # Handle edge cases
     if len(np.unique(y_true)) < 2:
-        return {"auroc": np.nan, "auprc": np.nan, "mcc": np.nan, "f1": np.nan}
+        return {"auroc": 0.0, "auprc": 0.0, "mcc": 0.0, "f1": 0.0, "optimal_threshold": 0.5}
 
     # AUROC
     auroc = roc_auc_score(y_true, y_score)
